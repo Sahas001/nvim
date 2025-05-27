@@ -968,24 +968,32 @@ local lspconfig = require 'lspconfig'
 -- Set up `gopls` with `organizeImports` on save
 lspconfig.gopls.setup {
   on_attach = function(client, bufnr)
-    -- Set up custom on_attach behavior if you have any (like key mappings, etc.)
-
-    -- Auto-format and organize imports on save
     vim.api.nvim_create_autocmd('BufWritePre', {
       buffer = bufnr,
       callback = function()
-        -- Format the code
+        -- Make params with proper encoding
+        local params = vim.lsp.util.make_range_params(nil, client.offset_encoding)
+        params.context = { only = { 'source.organizeImports' } }
+
+        local result = vim.lsp.buf_request_sync(bufnr, 'textDocument/codeAction', params, 1000)
+
+        for _, res in pairs(result or {}) do
+          for _, action in pairs(res.result or {}) do
+            if action.edit then
+              vim.lsp.util.apply_workspace_edit(action.edit, client.offset_encoding)
+            elseif action.command then
+              vim.lsp.buf.execute_command(action.command)
+            end
+          end
+        end
+
         vim.lsp.buf.format { async = false }
-        -- Organize imports
-        vim.lsp.buf.code_action {
-          context = { only = { 'source.organizeImports' } },
-          apply = true,
-        }
       end,
     })
   end,
 }
 
+--
 lspconfig.ts_ls.setup {
   on_attach = function(client, bufnr)
     -- Format on save for auto-imports
