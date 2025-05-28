@@ -83,7 +83,6 @@ I hope you enjoy your Neovim journey,
 
 P.S. You can delete this when you're done too. It's your config now! :)
 --]]
-
 -- Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
@@ -159,6 +158,19 @@ vim.opt.scrolloff = 10
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
+
+-- NOTE: Solves symbols_to_items being handed a nil or malformed position.
+local lsp_util = require 'vim.lsp.util'
+local original_symbols_to_items = lsp_util.symbols_to_items
+
+lsp_util.symbols_to_items = function(symbols, bufnr)
+  local ok, items = pcall(original_symbols_to_items, symbols, bufnr)
+  if not ok then
+    vim.notify('⚠️ LSP symbols parsing error caught — skipping invalid symbols', vim.log.levels.WARN)
+    return {}
+  end
+  return items
+end
 
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
