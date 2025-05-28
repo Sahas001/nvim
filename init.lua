@@ -160,6 +160,7 @@ vim.opt.scrolloff = 10
 --  See `:help vim.keymap.set()`
 
 -- NOTE: Solves symbols_to_items being handed a nil or malformed position.
+--
 local lsp_util = require 'vim.lsp.util'
 local original_symbols_to_items = lsp_util.symbols_to_items
 
@@ -178,6 +179,21 @@ vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+
+-- Enable virtual text (inline error messages)
+vim.diagnostic.config {
+  virtual_text = {
+    prefix = '✦', -- Could be '■', '▎', '●', or others — like tiny constellations in your code
+    spacing = 2,
+  },
+  signs = true, -- Show icons in the gutter (sign column)
+  underline = true, -- Underline errors and warnings
+  update_in_insert = false, -- Avoid showing errors while typing, only after leaving insert mode
+  severity_sort = true,
+}
+
+vim.o.updatetime = 250
+vim.cmd [[autocmd CursorHold * lua vim.diagnostic.open_float(nil, { focus = false })]]
 
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -593,6 +609,10 @@ require('lazy').setup({
       --  - capabilities (table): Override fields in capabilities. Can be used to disable certain LSP features.
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
+      --
+
+      local lspconfig = require 'lspconfig'
+
       local servers = {
         clangd = {},
         html = {},
@@ -607,43 +627,70 @@ require('lazy').setup({
               staticcheck = true,
               completeUnimported = true,
               usePlaceholders = true,
-              analyses = {
-                unusedparams = true,
-              },
+              analyses = { unusedparams = true },
               codelenses = {
                 generate = true,
                 gc_details = true,
               },
             },
           },
+          on_attach = function(client, bufnr)
+            vim.api.nvim_create_autocmd('BufWritePre', {
+              buffer = bufnr,
+              callback = function()
+                -- async organize imports
+                local params = vim.lsp.util.make_range_params(nil, client.offset_encoding)
+                params.context = { only = { 'source.organizeImports' } }
+
+                vim.lsp.buf_request(bufnr, 'textDocument/codeAction', params, function(_, result)
+                  for _, action in pairs(result or {}) do
+                    if action.edit then
+                      vim.lsp.util.apply_workspace_edit(action.edit, client.offset_encoding)
+                    elseif action.command then
+                      vim.lsp.buf.execute_command(action.command)
+                    end
+                  end
+                end)
+
+                -- async format
+                vim.lsp.buf.format { async = true }
+              end,
+            })
+          end,
         },
         -- pyright = {},
         -- rust_analyzer = {},
-        -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
-        --
-        -- Some languages (like typescript) have entire language plugins that can be useful:
-        --    https://github.com/pmizio/typescript-tools.nvim
-        --
-        -- But for many setups, the LSP (`tsserver`) will work just fine
         ts_ls = {
           cmd = { 'typescript-language-server', '--stdio' },
-          filetypes = { 'typescript', 'typescriptreact', 'typescript.tsx', 'javascript', 'javascriptreact', 'javascript.jsx' },
-          init_options = {
-            hostInfo = 'neovim',
+          filetypes = {
+            'typescript',
+            'typescriptreact',
+            'typescript.tsx',
+            'javascript',
+            'javascriptreact',
+            'javascript.jsx',
           },
+          init_options = { hostInfo = 'neovim' },
+          on_attach = function(_, bufnr)
+            vim.api.nvim_create_autocmd('BufWritePre', {
+              group = vim.api.nvim_create_augroup('TSAutoImports', {}),
+              buffer = bufnr,
+              callback = function()
+                vim.lsp.buf.code_action {
+                  context = { only = { 'source.addMissingImports.ts' } },
+                  apply = true,
+                }
+                vim.defer_fn(function()
+                  vim.lsp.buf.format { async = true }
+                end, 100)
+              end,
+            })
+          end,
         },
-        --
-
         lua_ls = {
-          -- cmd = {...},
-          -- filetypes = { ...},
-          -- capabilities = {},
           settings = {
             Lua = {
-              completion = {
-                callSnippet = 'Replace',
-              },
-              -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
+              completion = { callSnippet = 'Replace' },
               -- diagnostics = { disable = { 'missing-fields' } },
             },
           },
@@ -972,54 +1019,3 @@ require('lazy').setup({
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
-
--- Autoimport go headers using nvim-lspconfig
--- Ensure `nvim-lspconfig` is installed and configured
-local lspconfig = require 'lspconfig'
-
--- Set up `gopls` with `organizeImports` on save
-lspconfig.gopls.setup {
-  on_attach = function(client, bufnr)
-    vim.api.nvim_create_autocmd('BufWritePre', {
-      buffer = bufnr,
-      callback = function()
-        -- Make params with proper encoding
-        local params = vim.lsp.util.make_range_params(nil, client.offset_encoding)
-        params.context = { only = { 'source.organizeImports' } }
-
-        local result = vim.lsp.buf_request_sync(bufnr, 'textDocument/codeAction', params, 1000)
-
-        for _, res in pairs(result or {}) do
-          for _, action in pairs(res.result or {}) do
-            if action.edit then
-              vim.lsp.util.apply_workspace_edit(action.edit, client.offset_encoding)
-            elseif action.command then
-              vim.lsp.buf.execute_command(action.command)
-            end
-          end
-        end
-
-        vim.lsp.buf.format { async = false }
-      end,
-    })
-  end,
-}
-
---
-lspconfig.ts_ls.setup {
-  on_attach = function(client, bufnr)
-    -- Format on save for auto-imports
-    vim.api.nvim_create_autocmd('BufWritePre', {
-      group = vim.api.nvim_create_augroup('TSAutoImports', {}),
-      buffer = bufnr,
-      callback = function()
-        vim.lsp.buf.format { async = false }
-        vim.lsp.buf.code_action {
-          ---@diagnostic disable-next-line: assign-type-mismatch
-          context = { only = { 'source.addMissingImports.ts' } },
-          apply = true,
-        }
-      end,
-    })
-  end,
-}
