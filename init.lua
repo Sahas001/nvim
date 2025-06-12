@@ -5,7 +5,6 @@ vim.g.maplocalleader = ' '
 -- Set to true if you have a Nerd Font installed and selected in the terminal
 vim.g.have_nerd_font = true
 
--- [[ Setting options ]]
 -- See `:help vim.opt`
 -- NOTE: You can change these options as you wish!
 --  For more options, you can see `:help option-list`
@@ -67,7 +66,7 @@ vim.opt.inccommand = 'split'
 vim.opt.cursorline = true
 
 -- Minimal number of screen lines to keep above and below the cursor.
-vim.opt.scrolloff = 5
+vim.opt.scrolloff = 10
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
@@ -528,6 +527,7 @@ require('lazy').setup({
       --
 
       local servers = {
+        gopls = {},
         clangd = {},
         html = {},
         cssls = {},
@@ -547,21 +547,6 @@ require('lazy').setup({
               cargo = {
                 allFeatures = true,
               },
-            },
-          },
-        },
-        gopls = {
-          cmd = { 'gopls' },
-          filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
-          settings = {
-            gopls = {
-              analyses = {
-                unusedparams = true,
-              },
-              staticcheck = true,
-              gofumpt = true,
-              usePlaceholders = true,
-              completeUnimported = true,
             },
           },
         },
@@ -786,20 +771,12 @@ require('lazy').setup({
     end,
   },
 
-  { -- You can easily change to a different colorscheme.
-    -- Change the name of the colorscheme plugin below, and then
-    -- change the command in the config to whatever the name of that colorscheme is.
-    --
-    -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
+  {
     'ellisonleao/gruvbox.nvim',
     priority = 1000, -- Make sure to load this before all the other start plugins.
-    init = function()
-      -- Load the colorscheme here.
-      -- Like many other themes, this one has different styles, and you could load
-      -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'gruvbox'
 
-      -- You can configure highlights by doing something like:
+    init = function()
+      vim.cmd.colorscheme 'moonfly'
       vim.cmd.hi 'Comment gui=none'
     end,
   },
@@ -930,3 +907,51 @@ vim.keymap.set('n', '<leader>m', function()
     sections = { '1', '2', '3', '7' },
   }
 end, { desc = '[M]an Page' })
+
+-- NOTE: The following code is specific to Go development.
+--
+local function go_on_attach(client, bufnr)
+  -- Keybind or autoformat
+  vim.api.nvim_create_autocmd('BufWritePre', {
+    buffer = bufnr,
+    callback = function()
+      -- Format and organize imports
+      vim.lsp.buf.format { async = false }
+      vim.lsp.buf.code_action {
+        context = { only = { 'source.organizeImports' } },
+        apply = true,
+      }
+    end,
+  })
+end
+
+-- NOTE: Seperate lsp config for go since its not  working above.
+
+local lspconfig = require 'lspconfig'
+local cmp_nvim_lsp = require 'cmp_nvim_lsp'
+
+-- Enable snippet support
+local capabilities = cmp_nvim_lsp.default_capabilities()
+capabilities.textDocument.completion.completionItem.snippetSupport = true
+
+-- Setup gopls with full config
+lspconfig.gopls.setup {
+  cmd = { 'gopls' },
+  filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
+  root_dir = lspconfig.util.root_pattern('go.work', 'go.mod', '.git'),
+  capabilities = capabilities,
+
+  on_attach = go_on_attach, -- Attach function to handle keymaps and autoformatting
+
+  settings = {
+    gopls = {
+      usePlaceholders = true, -- THIS enables snippets like `fmt.Printf(format string, a ...interface{})`
+      completeUnimported = true,
+      staticcheck = true,
+      gofumpt = true,
+      analyses = {
+        unusedparams = true,
+      },
+    },
+  },
+}

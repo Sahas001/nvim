@@ -1,5 +1,21 @@
 return {
   {
+    'navarasu/onedark.nvim',
+    -- config = function()
+    --   require('onedark').load()
+    -- end,
+  },
+  {
+    'rose-pine/neovim',
+    name = 'rose-pine',
+  },
+  {
+    'bluz71/vim-moonfly-colors',
+    name = 'moonfly',
+    lazy = false,
+    priority = 1000,
+  },
+  {
     'windwp/nvim-ts-autotag',
     requires = 'nvim-treesitter/nvim-treesitter',
     config = function()
