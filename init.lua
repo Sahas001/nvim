@@ -13,7 +13,7 @@ vim.g.have_nerd_font = true
 vim.opt.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
--- vim.opt.relativenumber = true
+vim.opt.relativenumber = true
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
@@ -66,7 +66,10 @@ vim.opt.inccommand = 'split'
 vim.opt.cursorline = true
 
 -- Minimal number of screen lines to keep above and below the cursor.
-vim.opt.scrolloff = 10
+-- vim.opt.scrolloff = 10
+
+-- Set vims completion options
+vim.opt.complete = { '.', 'w', 'b', 'u', 't', 'i', 'kspell' }
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
@@ -528,7 +531,23 @@ require('lazy').setup({
 
       local servers = {
         gopls = {},
+        zls = {
+          cmd = { 'zls' },
+          filetypes = { 'zig' },
+        },
         clangd = {},
+        buf_ls = {
+          cmd = { 'buf-language-server', 'stdio' },
+          filetypes = { 'proto' },
+          init_options = {
+            command = { 'buf', 'ls', 'lint', '--config', 'buf.yaml' },
+            settings = {
+              lint = {
+                use_static_analysis = true,
+              },
+            },
+          },
+        },
         html = {},
         cssls = {},
         tailwindcss = {},
@@ -611,7 +630,8 @@ require('lazy').setup({
             -- by the server configuration above. Useful when disabling
             -- certain features of an LSP (for example, turning off formatting for tsserver)
             server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
+            vim.lsp.config[server_name] = server
+            vim.lsp.enable(server_name)
           end,
         },
       }
@@ -776,7 +796,7 @@ require('lazy').setup({
     priority = 1000, -- Make sure to load this before all the other start plugins.
 
     init = function()
-      vim.cmd.colorscheme 'moonfly'
+      vim.cmd.colorscheme 'gruvbox'
       vim.cmd.hi 'Comment gui=none'
     end,
   },
@@ -927,7 +947,6 @@ end
 
 -- NOTE: Seperate lsp config for go since its not  working above.
 
-local lspconfig = require 'lspconfig'
 local cmp_nvim_lsp = require 'cmp_nvim_lsp'
 
 -- Enable snippet support
@@ -935,10 +954,10 @@ local capabilities = cmp_nvim_lsp.default_capabilities()
 capabilities.textDocument.completion.completionItem.snippetSupport = true
 
 -- Setup gopls with full config
-lspconfig.gopls.setup {
+vim.lsp.config.gopls = {
   cmd = { 'gopls' },
   filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
-  root_dir = lspconfig.util.root_pattern('go.work', 'go.mod', '.git'),
+  root_markers = { 'go.work', 'go.mod', '.git' },
   capabilities = capabilities,
 
   on_attach = go_on_attach, -- Attach function to handle keymaps and autoformatting
@@ -955,3 +974,4 @@ lspconfig.gopls.setup {
     },
   },
 }
+vim.lsp.enable 'gopls'

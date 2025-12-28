@@ -84,13 +84,23 @@ return {
       vim.api.nvim_set_keymap('i', '<C-k>', 'copilot#Accept("")', { expr = true, silent = true, noremap = true, desc = 'Accept Copilot suggestion' })
 
       -- Use <C-[> (Ctrl + [) for navigating previous Copilot suggestions
-      vim.keymap.set('i', '<C-[>', '<Plug>(copilot-previous)', { noremap = true, silent = true, desc = 'Previous Copilot suggestion' })
+      vim.keymap.set('i', '<M-[>', '<Plug>(copilot-previous)', { noremap = true, silent = true, desc = 'Previous Copilot suggestion' })
 
       -- Use <C-]> (Ctrl + ]>) for navigating next Copilot suggestions
-      vim.keymap.set('i', '<C-]>', '<Plug>(copilot-next)', { noremap = true, silent = true, desc = 'Next Copilot suggestion' })
+      vim.keymap.set('i', '<M-]>', '<Plug>(copilot-next)', { noremap = true, silent = true, desc = 'Next Copilot suggestion' })
 
       -- Use <C-\\> (Ctrl + \\) to trigger Copilot suggestion manually
       vim.keymap.set('i', '<C-\\>', '<Plug>(copilot-suggest)', { noremap = true, silent = true, desc = 'Trigger Copilot suggestion' })
     end,
+  },
+  {
+    'CopilotC-Nvim/CopilotChat.nvim',
+    dependencies = {
+      { 'nvim-lua/plenary.nvim', branch = 'master' },
+    },
+    build = 'make tiktoken',
+    opts = {
+      -- See Configuration section for options
+    },
   },
 }
