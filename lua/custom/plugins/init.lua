@@ -17,7 +17,7 @@ return {
   },
   {
     'windwp/nvim-ts-autotag',
-    requires = 'nvim-treesitter/nvim-treesitter',
+    dependencies = { 'nvim-treesitter/nvim-treesitter' },
     config = function()
       require('nvim-ts-autotag').setup()
     end,
@@ -101,6 +101,14 @@ return {
     build = 'make tiktoken',
     opts = {
       -- See Configuration section for options
+    },
+  },
+  {
+    'sphamba/smear-cursor.nvim',
+    opts = {
+      smear_between_buffers = true, -- Smear cursor when switching buffers or windows
+      smear_between_neighbor_lines = true, -- Smear cursor when moving within line or to neighbor lines
+      -- Other configuration options can be added here
     },
   },
 }
